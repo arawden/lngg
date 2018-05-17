@@ -1,4 +1,4 @@
 # LNGG
 http://craftinginterpreters.com/introduction.html
 
-Up to section 5.1: http://craftinginterpreters.com/representing-code.html
+Up to section 7 http://craftinginterpreters.com/evaluating-expressions.html
