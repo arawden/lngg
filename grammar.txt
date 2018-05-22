@@ -1,0 +1,24 @@
+program -> declaration* EOF;
+
+declaration → varDecl
+            | statement;
+
+statement → exprStmt
+          | printStmt
+          | block;
+
+block → "{" declaration* "}";
+
+expression → assignment;
+
+assignment → identifier "=" assignment
+           | equality;
+
+varDecl → "var" IDENTIFIER ( "=" expression )? ";";
+
+primary → "true" | "false" | "nil" | "this"
+        | NUMBER | STRING
+        | "(" expression ")"
+        | IDENTIFIER;
+
+

@@ -1,9 +1,49 @@
 package jlox;
 
 // Unambiguous ugly string representation of AST nodes
-class AstPrinter implements Expr.Visitor<String> {
+class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
   String print(Expr expr) {
     return expr.accept(this);
+  }
+  String print(Stmt stmt) {
+    return stmt.accept(this);
+  }
+
+  @Override
+  public String visitBlockStmt(Stmt.Block stmt) {
+    StringBuilder builder = new StringBuilder();
+    builder.append("(block ");
+
+    for(Stmt statement : stmt.statements) {
+      builder.append(statement.accept(this));
+    }
+
+    builder.append("}");
+    return builder.toString();
+  }
+
+  @Override
+  public String visitExpressionStmt(Stmt.Expression stmt) {
+    return parenthesize(";", stmt.expression);
+  }
+
+  @Override
+  public String visitPrintStmt(Stmt.Print stmt) {
+    return parenthesize("print", stmt.expression);
+  }
+
+  @Override
+  public String visitVarStmt(Stmt.Var stmt) {
+    if(stmt.initializer == null) {
+      return parenthesize2("var", stmt.name);
+    }
+
+    return parenthesize2("var", stmt.name, "=", stmt.initializer);
+  }
+
+  @Override
+  public String visitAssignExpr(Expr.Assign expr) {
+    return parenthesize2("=", expr.name.lexeme, expr.value);
   }
 
   @Override
@@ -29,6 +69,11 @@ class AstPrinter implements Expr.Visitor<String> {
     return parenthesize(expr.operator.lexeme, expr.right);
   }
 
+  @Override
+  public String visitVariableExpr(Expr.Variable expr) {
+    return expr.name.lexeme;
+  }
+
   private String parenthesize(String name, Expr... exprs) {
     StringBuilder builder = new StringBuilder();
 
@@ -36,6 +81,29 @@ class AstPrinter implements Expr.Visitor<String> {
     for (Expr expr : exprs) {
       builder.append(" ");
       builder.append(expr.accept(this));
+    }
+    builder.append(")");
+
+    return builder.toString();
+  }
+
+  private String parenthesize2(String name, Object... parts) {
+    StringBuilder builder = new StringBuilder();
+
+    builder.append("(").append(name);
+
+    for(Object part : parts) {
+      builder.append(" ");
+
+      if(part instanceof Expr) {
+        builder.append(((Expr) part).accept(this));
+      } else if(part instanceof Stmt) {
+        builder.append(((Stmt) part).accept(this));
+      } else if (part instanceof Token) {
+        builder.append(((Token) part).lexeme);
+      } else {
+        builder.append(part);
+      }
     }
     builder.append(")");
 
