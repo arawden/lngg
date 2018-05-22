@@ -1,7 +1,7 @@
 # LNGG
 http://craftinginterpreters.com/introduction.html
 
-Up to 9 http://craftinginterpreters.com/control-flow.html
+Up to 10 http://craftinginterpreters.com/functions.html
 
 ### AST types
 ["Also, as we add new syntax tree types, I won’t bother showing the necessary visit methods for them in AstPrinter. If you want to (and you want the Java compiler to not yell at you), go ahead and add them yourself."](https://github.com/munificent/craftinginterpreters/blob/master/java/com/craftinginterpreters/lox/AstPrinter.java)

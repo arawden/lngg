@@ -1,24 +1,38 @@
-program -> declaration* EOF;
+program -> declaration* EOF
 
 declaration → varDecl
-            | statement;
+            | statement
 
 statement → exprStmt
+          | forStmt
+          | ifStmt
           | printStmt
-          | block;
+          | whileStmt
+          | block
 
-block → "{" declaration* "}";
+forStmt   → "for" "(" ( varDecl | exprStmt | ";" )
+                      expression? ";"
+                      expression? ")" statement
 
-expression → assignment;
+whileStmt → "while" "(" expression ")" statement
+
+ifStmt → "if" "(" expression ")" statement ( "else" statement )?
+
+block → "{" declaration* "}"
+
+expression → assignment
 
 assignment → identifier "=" assignment
-           | equality;
+           | equality
 
-varDecl → "var" IDENTIFIER ( "=" expression )? ";";
+logic_or → logic_and ( "or" logic_and )*
+logic_and → equality ( "and" equality )*
+
+varDecl → "var" IDENTIFIER ( "=" expression )? ";"
 
 primary → "true" | "false" | "nil" | "this"
         | NUMBER | STRING
         | "(" expression ")"
-        | IDENTIFIER;
+        | IDENTIFIER
 
 
