@@ -1,10 +1,12 @@
 # LNGG
 http://craftinginterpreters.com/introduction.html
 
-Up to 10 http://craftinginterpreters.com/functions.html
+Up to 11 http://craftinginterpreters.com/resolving-and-binding.html
 
 ### AST types
 ["Also, as we add new syntax tree types, I won’t bother showing the necessary visit methods for them in AstPrinter. If you want to (and you want the Java compiler to not yell at you), go ahead and add them yourself."](https://github.com/munificent/craftinginterpreters/blob/master/java/com/craftinginterpreters/lox/AstPrinter.java)
+
+Use `diff <(grep -o 'visit.[a-z]*' AstPrinter.java) <(grep -o 'visit.[a-z]*' Interpreter.java)` to check which functions haven't been covered in `AstPrinter.java`
 
 ### Running the Interpreter
 From `.`:
