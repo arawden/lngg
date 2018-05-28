@@ -1,13 +1,10 @@
-fun makePoint(x, y) {
-  fun closure(method) {
-    if (method == "x") return x;
-    if (method == "y") return y;
-    print "unknown method " + method;
+class Cake {
+  taste() {
+    var adjective = "delicious";
+    print "The " + this.flavor + " cake is " + adjective + "!";
   }
-
-  return closure;
 }
 
-var point = makePoint(2, 3);
-print point("x"); // "2".
-print point("y"); // "3".
+var cake = Cake();
+cake.flavor = "German chocolate";
+cake.taste();

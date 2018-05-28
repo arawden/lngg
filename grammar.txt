@@ -1,8 +1,11 @@
 program -> declaration* EOF
 
-declaration → funDecl
+declaration → classDecl
+            | funDecl
             | varDecl
             | statement
+
+classDecl → "class" IDENTIFIER "{" function* "}"
 
 funDecl  → "fun" function
 function → IDENTIFIER "(" parameters? ")" block
@@ -31,8 +34,8 @@ block → "{" declaration* "}"
 
 expression → assignment
 
-assignment → identifier "=" assignment
-           | equality
+assignment → ( call "." )? IDENTIFIER "=" assignment
+           | logic_or
 
 logic_or → logic_and ( "or" logic_and )*
 logic_and → equality ( "and" equality )*
@@ -46,6 +49,6 @@ primary → "true" | "false" | "nil" | "this"
 
 
 unary → ( "!" | "-" ) unary | call
-call → primary ( "(" arguments? ")" )*
+call → primary ( "(" arguments? ")" | "." IDENTIFIER )*
 arguments → expression ( "," expression )*
 
