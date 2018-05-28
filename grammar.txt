@@ -5,11 +5,13 @@ declaration → classDecl
             | varDecl
             | statement
 
-classDecl → "class" IDENTIFIER "{" function* "}"
+classDecl → "class" IDENTIFIER ( "<" IDENTIFIER )? "{"
+              function*
+            "}"
 
 funDecl  → "fun" function
-function → IDENTIFIER "(" parameters? ")" block
-
+function → IDENTIFIER "(" parameters? ")"
+            block
 parameters → IDENTIFIER ( "," IDENTIFIER )*
 
 statement → exprStmt
@@ -22,13 +24,15 @@ statement → exprStmt
 
 returnStmt → "return" expression? ";"
 
-forStmt   → "for" "(" ( varDecl | exprStmt | ";" )
-                      expression? ";"
-                      expression? ")" statement
+forStmt   → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")"
+              statement
 
-whileStmt → "while" "(" expression ")" statement
+whileStmt → "while" "(" expression ")"
+              statement
 
-ifStmt → "if" "(" expression ")" statement ( "else" statement )?
+ifStmt → "if" "(" expression ")"
+            statement
+          ( "else" statement )?
 
 block → "{" declaration* "}"
 
