@@ -60,7 +60,15 @@ public class Lox {
     List<Stmt> statements = parser.parse();
 
     // Syntax error
-    if(hadError) {
+    if (hadError) {
+      return;
+    }
+
+    Resolver resolver = new Resolver(interpreter);
+    resolver.resolve(statements);
+
+    // Resolution error
+    if (hadError) {
       return;
     }
 
