@@ -47,9 +47,9 @@ logic_and → equality ( "and" equality )*
 varDecl → "var" IDENTIFIER ( "=" expression )? ";"
 
 primary → "true" | "false" | "nil" | "this"
-        | NUMBER | STRING
+        | NUMBER | STRING | IDENTIFIER
         | "(" expression ")"
-        | IDENTIFIER
+        | "super" "." IDENTIFIER
 
 
 unary → ( "!" | "-" ) unary | call
