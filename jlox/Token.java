@@ -1,5 +1,6 @@
 package jlox;
 
+// Token: A raw lexeme + information relevant to the scanner
 class Token {
   final TokenType type;
   final String lexeme;

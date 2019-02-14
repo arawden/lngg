@@ -1,9 +1,9 @@
 // http://craftinginterpreters.com/appendix-i.html
 // Full program
-program -> declaration* EOF
+program → declaration* EOF
 
 
-// Declarations
+// Declarations: statements that declare names
 declaration → classDecl
             | funDecl
             | varDecl
@@ -17,7 +17,7 @@ varDecl → "var" IDENTIFIER ( "=" expression )? ";"
 
 
 // Declarations → Statements
-// I chose to re-order these to emphasize control flow first
+// I chose to re-order these to emphasize control flow
 statement → exprStmt
           | ifStmt
           | whileStmt
@@ -65,8 +65,9 @@ unary → ( "-" | "!" ) unary | call
 call → primary ( "(" arguments? ")" | "." IDENTIFIER )*
 
 primary → "true" | "false" | "nil" | "this"
-        | NUMBER | STRING | IDENTIFIER
+        | NUMBER | STRING
         | "(" expression ")"
+        | IDENTIFIER
         | "super" "." IDENTIFIER
 
 

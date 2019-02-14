@@ -1,5 +1,6 @@
 package jlox;
 
+// RuntimeError: Identifies tokens where a runtime error occurred
 class RuntimeError extends RuntimeException {
   final Token token;
 

@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
+// Lox: Master file for running our interpreter
 public class Lox {
   private static final Interpreter interpreter = new Interpreter();
 
@@ -30,11 +31,12 @@ public class Lox {
     byte[] bytes = Files.readAllBytes(Paths.get(path));
     run(new String(bytes, Charset.defaultCharset()));
 
+    // I do not know what these status codes indicate
     if (hadError) {
       System.exit(65);
     }
 
-    if(hadRuntimeError) {
+    if (hadRuntimeError) {
       System.exit(70);
     }
   }
@@ -47,15 +49,18 @@ public class Lox {
     for (;;) {
       System.out.print("> ");
       run(reader.readLine());
-      hadError = false;
+
+      hadError = false; // If there is an error, session should remain active
     }
   }
 
   // Runaway by Kanye West
   private static void run(String source) {
+    // Scan
     Scanner scanner = new Scanner(source);
     List<Token> tokens = scanner.scanTokens();
 
+    // Parse
     Parser parser = new Parser(tokens);
     List<Stmt> statements = parser.parse();
 
@@ -64,6 +69,7 @@ public class Lox {
       return;
     }
 
+    // Resolve
     Resolver resolver = new Resolver(interpreter);
     resolver.resolve(statements);
 
@@ -72,28 +78,34 @@ public class Lox {
       return;
     }
 
-    // System.out.println(new AstPrinter().print(expression));
+    // Interpret
     interpreter.interpret(statements);
+  }
+
+  // Nicely formatted error reporting; set the hadError field
+  private static void report(int line, String where, String message) {
+    System.err.println("[line " + line + "] Error" + where + ": " + message);
+
+    hadError = true;
   }
 
   static void error(int line, String message) {
     report(line, "", message);
   }
 
-  private static void report(int line, String where, String message) {
-    System.err.println("[line " + line + "] Error" + where + ": " + message);
-    hadError = true;
-  }
-
+  // Error at given token
   static void error(Token token, String message) {
-    if(token.type == TokenType.EOF) {
+    if (token.type == TokenType.EOF) {
       report(token.line, " at end", message);
     } else {
       report(token.line, " at '" + token.lexeme + "'", message);
     }
   }
+
+  // Runtime error at given token
   static void runtimeError(RuntimeError error) {
     System.err.println(error.getMessage() + "\n[line " + error.token.line + "]");
+
     hadRuntimeError = true;
   }
 }

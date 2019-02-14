@@ -1,10 +1,12 @@
 package jlox;
 
-// Unambiguous ugly string representation of AST nodes
+// AstPrinter: An ugly string representation of AST nodes
+// Note that this is only covered partially in the book, so other parts are taken from Github
 class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
   String print(Expr expr) {
     return expr.accept(this);
   }
+
   String print(Stmt stmt) {
     return stmt.accept(this);
   }
@@ -14,7 +16,7 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     StringBuilder builder = new StringBuilder();
     builder.append("(block ");
 
-    for(Stmt statement : stmt.statements) {
+    for (Stmt statement : stmt.statements) {
       builder.append(statement.accept(this));
     }
 
@@ -53,26 +55,28 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     StringBuilder builder = new StringBuilder();
     builder.append("(fun " + stmt.name.lexeme + "(");
 
-    for(Token param : stmt.parameters) {
-      if(param != stmt.parameters.get(0)) {
+    for (Token param : stmt.parameters) {
+      if (param != stmt.parameters.get(0)) {
         builder.append(" ");
       }
+
       builder.append(param.lexeme);
     }
 
     builder.append(") ");
 
-    for(Stmt body : stmt.body) {
+    for (Stmt body : stmt.body) {
       builder.append(body.accept(this));
     }
 
     builder.append(")");
+
     return builder.toString();
   }
 
   @Override
   public String visitIfStmt(Stmt.If stmt) {
-    if(stmt.elseBranch == null) {
+    if (stmt.elseBranch == null) {
       return parenthesize2("if", stmt.condition, stmt.thenBranch);
     }
 
@@ -86,7 +90,7 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
 
   @Override
   public String visitReturnStmt(Stmt.Return stmt) {
-    if(stmt.value == null) {
+    if (stmt.value == null) {
       return "(return)";
     }
 
@@ -95,7 +99,7 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
 
   @Override
   public String visitVarStmt(Stmt.Var stmt) {
-    if(stmt.initializer == null) {
+    if (stmt.initializer == null) {
       return parenthesize2("var", stmt.name);
     }
 
@@ -137,6 +141,7 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     if (expr.value == null) {
       return "nil";
     }
+
     return expr.value.toString();
   }
 
@@ -170,10 +175,14 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     return expr.name.lexeme;
   }
 
+  // Print utilities
+  
+  // Helper method for subexpressions
   private String parenthesize(String name, Expr... exprs) {
     StringBuilder builder = new StringBuilder();
 
     builder.append("(").append(name);
+
     for (Expr expr : exprs) {
       builder.append(" ");
       builder.append(expr.accept(this));
@@ -183,17 +192,18 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     return builder.toString();
   }
 
+  // More verbose helper for other types of trees
   private String parenthesize2(String name, Object... parts) {
     StringBuilder builder = new StringBuilder();
 
     builder.append("(").append(name);
 
-    for(Object part : parts) {
+    for (Object part : parts) {
       builder.append(" ");
 
-      if(part instanceof Expr) {
+      if (part instanceof Expr) {
         builder.append(((Expr) part).accept(this));
-      } else if(part instanceof Stmt) {
+      } else if (part instanceof Stmt) {
         builder.append(((Stmt) part).accept(this));
       } else if (part instanceof Token) {
         builder.append(((Token) part).lexeme);
@@ -206,6 +216,7 @@ class AstPrinter implements Expr.Visitor<String>, Stmt.Visitor<String> {
     return builder.toString();
   }
 
+  // Sample program to print
   /*
   public static void main(String[] args) {
     Expr expression = new Expr.Binary(

@@ -5,9 +5,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
+
+// Resolver: Walk the parsed tree and resolve variable bindings
+//
+// We use the Visitor abstraction to perform variable resolution
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private final Interpreter interpreter;
-  private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+  private final Stack<Map<String, Boolean>> scopes = new Stack<>(); // Stack of scopes
 
   private FunctionType currentFunction = FunctionType.NONE;
 
@@ -21,6 +25,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     SUBCLASS
   }
 
+  // Are we inside a class while traversing the AST?
   private ClassType currentClass = ClassType.NONE;
 
   private enum FunctionType {
@@ -34,47 +39,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     for (Stmt statement : statements) {
       resolve(statement);
     }
-  }
-
-  private void beginScope() {
-    scopes.push(new HashMap<String, Boolean>());
-  }
-
-  private void endScope() {
-    scopes.pop();
-  }
-
-  private void declare(Token name) {
-    if (scopes.isEmpty()) {
-      return;
-    }
-
-    Map<String, Boolean> scope = scopes.peek();
-
-    if (scope.containsKey(name.lexeme)) {
-      Lox.error(name, "Variable with this name already declared in this scope.");
-    }
-
-    scope.put(name.lexeme, false);
-  }
-
-  private void define(Token name) {
-    if (scopes.isEmpty()) {
-      return;
-    }
-
-    scopes.peek().put(name.lexeme, true);
-  }
-
-  private void resolveLocal(Expr expr, Token name) {
-    for (int i = scopes.size() - 1; i >= 0; i--) {
-      if (scopes.get(i).containsKey(name.lexeme)) {
-        interpreter.resolve(expr, scopes.size()-1-i);
-
-        return;
-      }
-    }
-    // Assume global
   }
 
   @Override
@@ -95,16 +59,16 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     currentClass = ClassType.CLASS;
 
     if (stmt.superclass != null) {
-      currentCLass = ClassType.SUBCLASS;
+      currentClass = ClassType.SUBCLASS;
 
       resolve(stmt.superclass);
 
       beginScope();
-      scopes.peek().put("super", true);
+      scopes.peek().put("super", true); // Create a scope surrounding superclass
     }
 
     beginScope();
-    scopes.peek().put("this", true);
+    scopes.peek().put("this", true); // Define `this` as if it were a variable
 
     for (Stmt.Function method : stmt.methods) {
       FunctionType declaration = FunctionType.METHOD;
@@ -116,13 +80,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       resolveFunction(method, declaration);
     }
 
-    endScope();
+    endScope(); // Discard `this`
 
     if (stmt.superclass != null) {
       endScope();
     }
 
-    currentClass = enclosingClass;
+    currentClass = enclosingClass; // Restore the old enclosing class
 
     return null;
   }
@@ -170,12 +134,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     if (stmt.value != null) {
+      if (currentFunction == FunctionType.INITIALIZER) {
+        Lox.error(stmt.keyword, "Cannot return a value from an initializer.");
+      }
+
       resolve(stmt.value);
     }
 
-    if (currentFunction == FunctionType.INITIALIZER) {
-      Lox.error(stmt.keyword, "Cannot return a value from an initializer.");
-    }
 
     return null;
   }
@@ -244,6 +209,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitLiteralExpr(Expr.Literal expr) {
+    // Literal has no variables or subexpressions
     return null;
   }
 
@@ -265,7 +231,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitSuperExpr(Expr.Super expr) {
-    if (currentCLass == ClassType.NONE) {
+    if (currentClass == ClassType.NONE) {
       Lox.error(expr.keyword, "Cannot use 'super' outside of a class.");
     } else if (currentClass != ClassType.SUBCLASS) {
       Lox.error(expr.keyword, "Cannot use 'super' in a class with no superclass.");
@@ -284,11 +250,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       return null;
     }
 
+    // Resolve `this` like a local variable
     resolveLocal(expr, expr.keyword);
 
     return null;
   }
-
 
   @Override
   public Void visitUnaryExpr(Expr.Unary expr) {
@@ -300,6 +266,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   @Override
   public Void visitVariableExpr(Expr.Variable expr) {
     if (!scopes.isEmpty() && scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
+      // Value exists but has no value
       Lox.error(expr.name, "Cannot read local variable in its own initializer.");
     }
 
@@ -308,7 +275,53 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     return null;
   }
 
-  private void resolve(Stmt stmt) {
+  //
+  // Helpers
+  //
+
+  private void beginScope() {
+    scopes.push(new HashMap<String, Boolean>());
+  }
+
+  private void endScope() {
+    scopes.pop();
+  }
+
+  // Shadows outer variable so we know variable exists
+  private void declare(Token name) {
+    if (scopes.isEmpty()) {
+      return;
+    }
+
+    Map<String, Boolean> scope = scopes.peek();
+
+    if (scope.containsKey(name.lexeme)) {
+      Lox.error(name, "Variable with this name already declared in this scope.");
+    }
+
+    scope.put(name.lexeme, false);
+  }
+
+  // Set the variable's value 
+  private void define(Token name) {
+    if (scopes.isEmpty()) {
+      return;
+    }
+
+    scopes.peek().put(name.lexeme, true);
+  }
+
+  // Resolve from innermost scope outwards
+  private void resolveLocal(Expr expr, Token name) {
+    for (int i = scopes.size() - 1; i >= 0; i--) {
+      if (scopes.get(i).containsKey(name.lexeme)) {
+        interpreter.resolve(expr, scopes.size()-1-i);
+
+        return;
+      }
+    }
+    // Assume global
+  }  private void resolve(Stmt stmt) {
     stmt.accept(this);
   }
 
@@ -316,7 +329,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     expr.accept(this);
   }
 
+  // Resolve the interior of a function or method
   private void resolveFunction(Stmt.Function function, FunctionType type) {
+    // Store environment and function depth
     FunctionType enclosingFunction = currentFunction;
     currentFunction = type;
 
@@ -330,6 +345,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     resolve(function.body);
 
     endScope();
-    currentFunction = enclosingFunction;
+    currentFunction = enclosingFunction; // Restore current environment
   }
 }

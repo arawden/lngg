@@ -1,5 +1,6 @@
 package jlox;
 
+// Return: Custom exception class for control flow
 class Return extends RuntimeException {
   final Object value;
 
