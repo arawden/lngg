@@ -38,5 +38,5 @@ From `jlox/`:
 - `java tool.GenerateAst .`
 
 ## TODO:
-[x] compile a copy of the grammar
-[x] clean up & comment https://google.github.io/styleguide/javaguide.html
+- [x] compile a copy of the grammar  
+- [x] clean up & comment https://google.github.io/styleguide/javaguide.html
