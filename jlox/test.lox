@@ -7,6 +7,6 @@ fun fib(n) {
 }
 
 var before = clock();
-print fib(40);
+print fib(36);
 var after = clock();
-printer after - before;
+print after - before;
