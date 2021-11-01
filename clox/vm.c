@@ -21,9 +21,11 @@ static Value peek(int);
 // vm
 void initVM() {
   resetStack();
+  vm.objects = NULL;
 }
 
 void freeVM() {
+  freeObjects();
 }
 
 // interpreter
