@@ -28,6 +28,7 @@ static void adjustCapacity(Table *table, int capacity)
         entries[i].value = NIL_VAL;
     }
 
+    table->count = 0;
     for (int i = 0; i < table->capacity; i++)
     {
         Entry *entry = &table->entries[i];
@@ -37,6 +38,8 @@ static void adjustCapacity(Table *table, int capacity)
         Entry *dest = findEntry(entries, capacity, entry->key);
         dest->key = entry->key;
         dest->value = entry->value;
+
+        table->count++;
     }
 
     FREE_ARRAY(Entry, table->entries, table->capacity);
@@ -51,25 +54,51 @@ void tableCopy(Table *from, Table *to)
     {
         Entry *entry = &from->entries[i];
         if (entry->key != NULL)
-        {
             tableSet(to, entry->key, entry->value);
-        }
     }
 }
 
 static Entry *findEntry(Entry *entries, int capacity, ObjString *key)
 {
     uint32_t index = key->hash % capacity;
+    Entry *tombstone = NULL;
     for (;;)
     {
         Entry *entry = &entries[index];
-        if (entry->key == key || entry->key == NULL)
+        if (entry->key == NULL)
+        {
+            // empty entry
+            if (IS_NIL(entry->value))
+            {
+                return tombstone != NULL ? tombstone : entry;
+            }
+            else
+            {
+                // value marked as removed
+                if (tombstone == NULL)
+                    tombstone = entry;
+            }
+        }
+        else if (entry->key == key)
         {
             return entry;
         }
 
         index = (index + 1) % capacity;
     }
+}
+
+bool tableGet(Table *table, ObjString *key, Value *value)
+{
+    if (table->count == 0)
+        return false;
+
+    Entry *entry = findEntry(table->entries, table->capacity, key);
+    if (entry->key == NULL)
+        return false;
+
+    *value = entry->value;
+    return true;
 }
 
 bool tableSet(Table *table, ObjString *key, Value value)
@@ -82,11 +111,27 @@ bool tableSet(Table *table, ObjString *key, Value value)
 
     Entry *entry = findEntry(table->entries, table->capacity, key);
     bool isNewKey = entry->key == NULL;
-    if (isNewKey)
+    if (isNewKey && IS_NIL(entry->value))
         table->count++;
 
     entry->key = key;
     entry->value = value;
 
     return isNewKey;
+}
+
+bool tableDelete(Table *table, ObjString *key)
+{
+    if (table->count == 0)
+        return false;
+
+    Entry *entry = findEntry(table->entries, table->capacity, key);
+    if (entry->key == NULL)
+        return false;
+
+    // mark removed entry with "tombstone"
+    entry->key = NULL;
+    entry->value = BOOL_VAL(true);
+
+    return true;
 }
