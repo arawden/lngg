@@ -20,7 +20,7 @@ jobs:
       - name: set up GCC
         uses: egor-tensin/setup-gcc@v1
         with:
-          version: "11.3"
+          version: "11"
 
       - name: compile
         run: gcc *.c -o clox
