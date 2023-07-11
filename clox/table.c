@@ -19,6 +19,36 @@ void freeTable(Table *table)
     initTable(table);
 }
 
+static Entry *findEntry(Entry *entries, int capacity, ObjString *key)
+{
+    uint32_t index = key->hash % capacity;
+    Entry *tombstone = NULL;
+    for (;;)
+    {
+        Entry *entry = &entries[index];
+        if (entry->key == NULL)
+        {
+            // empty entry
+            if (IS_NIL(entry->value))
+            {
+                return tombstone != NULL ? tombstone : entry;
+            }
+            else
+            {
+                // value marked as removed
+                if (tombstone == NULL)
+                    tombstone = entry;
+            }
+        }
+        else if (entry->key == key)
+        {
+            return entry;
+        }
+
+        index = (index + 1) % capacity;
+    }
+}
+
 static void adjustCapacity(Table *table, int capacity)
 {
     Entry *entries = ALLOCATE(Entry, capacity);
@@ -58,33 +88,29 @@ void tableCopy(Table *from, Table *to)
     }
 }
 
-static Entry *findEntry(Entry *entries, int capacity, ObjString *key)
+ObjString *tableFindString(Table *table, const char *chars,
+                           int length, uint32_t hash)
 {
-    uint32_t index = key->hash % capacity;
-    Entry *tombstone = NULL;
+    if (table->count == 0)
+        return NULL;
+
+    uint32_t index = hash % table->capacity;
     for (;;)
     {
-        Entry *entry = &entries[index];
+        Entry *entry = &table->entries[index];
         if (entry->key == NULL)
         {
-            // empty entry
             if (IS_NIL(entry->value))
-            {
-                return tombstone != NULL ? tombstone : entry;
-            }
-            else
-            {
-                // value marked as removed
-                if (tombstone == NULL)
-                    tombstone = entry;
-            }
+                return NULL;
         }
-        else if (entry->key == key)
+        else if (entry->key->length == length &&
+                 entry->key->hash == hash &&
+                 memcmp(entry->key->chars, chars, length) == 0)
         {
-            return entry;
+            return entry->key;
         }
 
-        index = (index + 1) % capacity;
+        index = (index + 1) % table->capacity;
     }
 }
 
