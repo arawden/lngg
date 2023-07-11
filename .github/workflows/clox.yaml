@@ -1,0 +1,29 @@
+name: clox
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  review:
+    name: "review"
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: clox
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: set up GCC
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: "11"
+
+      - name: compile
+        run: gcc *.c -o clox
+
+      - name: check test file
+        run: ./clox test.lox
