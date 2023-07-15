@@ -6,35 +6,37 @@
 #include "value.h"
 
 typedef enum {
-  OP_CONSTANT,
-  OP_NOT,
-  OP_TRUE,
-  OP_FALSE,
-  OP_NIL,
-  OP_GREATER,
-  OP_LESS,
-  OP_EQUAL,
-  OP_MULTIPLY,
-  OP_DIVIDE,
-  OP_ADD,
-  OP_SUBTRACT,
-  OP_NEGATE,
-  OP_RETURN,
+    OP_CONSTANT,
+    OP_NOT,
+    OP_TRUE,
+    OP_FALSE,
+    OP_NIL,
+    OP_GREATER,
+    OP_LESS,
+    OP_EQUAL,
+    OP_POP,
+    OP_MULTIPLY,
+    OP_DIVIDE,
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_NEGATE,
+    OP_PRINT,
+    OP_RETURN,
 } OpCode;
 
 typedef struct {
-  int count;
-  int capacity;
-  uint8_t* code;
-  int* lines;
-  ValueArray constants;
+    int count;
+    int capacity;
+    uint8_t *code;
+    int *lines;
+    ValueArray constants;
 } Chunk;
 
-void initChunk(Chunk* chunk);
+void initChunk(Chunk *chunk);
 
-void writeChunk(Chunk* chunk, uint8_t byte, int line);
-int addConstant(Chunk* chunk, Value value);
+void writeChunk(Chunk *chunk, uint8_t byte, int line);
+int addConstant(Chunk *chunk, Value value);
 
-void freeChunk(Chunk* chunk);
+void freeChunk(Chunk *chunk);
 
 #endif

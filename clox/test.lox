@@ -1,1 +1,3 @@
-"st" + "ri" + "ng"
+print "st" + "ri" + "ng" + " theorist";
+
+print 5+7;
