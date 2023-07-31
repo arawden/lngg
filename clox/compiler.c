@@ -31,7 +31,7 @@ typedef enum {
     PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(bool canAssign);
 
 typedef struct {
     ParseFn prefix;
@@ -47,8 +47,6 @@ static void expression();
 static void statement();
 static void declaration();
 
-static void literal();
-
 static void advance();
 static void consume(TokenType, const char *);
 static bool match(TokenType type);
@@ -56,13 +54,14 @@ static bool match(TokenType type);
 static void parsePrecedence(Precedence);
 static ParseRule *getRule(TokenType);
 
-static void grouping();
-static void binary();
-static void unary();
-static void number();
-static void string();
-static void variable();
-static void namedVariable(Token);
+static void grouping(bool canAssign);
+static void literal(bool canAssign);
+static void binary(bool canAssign);
+static void unary(bool canAssign);
+static void number(bool canAssign);
+static void string(bool canAssign);
+static void variable(bool canAssign);
+static void namedVariable(Token name, bool canAssign);
 
 ParseRule rules[] = {
     {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
@@ -225,7 +224,7 @@ static void statement() {
     }
 }
 
-static void literal() {
+static void literal(bool canAssign) {
     switch (parser.previous.type) {
         case TOKEN_TRUE:
             emitByte(OP_TRUE);
@@ -247,18 +246,22 @@ static void parsePrecedence(Precedence precedence) {
     ParseFn prefixRule = getRule(parser.previous.type)->prefix;
 
     if (prefixRule == NULL) {
-        error("Expect expression.");
+        error("expect expression.");
 
         return;
     }
 
-    prefixRule();
+    bool canAssign = precedence <= PREC_ASSIGNMENT;
+    prefixRule(canAssign);
 
     while (precedence <= getRule(parser.current.type)->precedence) {
         advance();
 
         ParseFn infixRule = getRule(parser.previous.type)->infix;
-        infixRule();
+        infixRule(canAssign);
+    }
+    if (canAssign && match(TOKEN_EQUAL)) {
+        error("invalid assignment target.");
     }
 }
 
@@ -300,13 +303,13 @@ static bool match(TokenType type) {
 }
 
 // prefix expressions
-static void grouping() {
+static void grouping(bool canAssign) {
     expression();
 
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void binary() {
+static void binary(bool canAssign) {
     // store operator
     TokenType operatorType = parser.previous.type;
 
@@ -351,7 +354,7 @@ static void binary() {
     }
 }
 
-static void unary() {
+static void unary(bool canAssign) {
     TokenType operatorType = parser.previous.type;
 
     // compile operand
@@ -371,22 +374,30 @@ static void unary() {
 }
 
 // number literals
-static void number() {
+static void number(bool canAssign) {
     double value = strtod(parser.previous.start, NULL);
 
     emitConstant(NUMBER_VAL(value));
 }
 
-static void string() {
+static void string(bool canAssign) {
     emitConstant(OBJ_VAL(
         copyString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
-static void variable() { namedVariable(parser.previous); }
+static void variable(bool canAssign) {
+    namedVariable(parser.previous, canAssign);
+}
 
-static void namedVariable(Token name) {
+static void namedVariable(Token name, bool canAssign) {
     uint8_t arg = identifierConstant(&name);
-    emitBytes(OP_GET_GLOBAL, arg);
+
+    if (canAssign && match(TOKEN_EQUAL)) {
+        expression();
+        emitBytes(OP_SET_GLOBAL, arg);
+    } else {
+        emitBytes(OP_GET_GLOBAL, arg);
+    }
 }
 
 // translate to bytecode
