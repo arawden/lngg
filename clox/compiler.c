@@ -61,6 +61,8 @@ static void binary();
 static void unary();
 static void number();
 static void string();
+static void variable();
+static void namedVariable(Token);
 
 ParseRule rules[] = {
     {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
@@ -83,26 +85,27 @@ ParseRule rules[] = {
     {NULL, binary, PREC_COMPARISON},  // TOKEN_LESS
     {NULL, binary, PREC_COMPARISON},  // TOKEN_LESS_EQUAL
     {NULL, NULL, PREC_NONE},          // TOKEN_IDENTIFIER
-    {string, NULL, PREC_NONE},        // TOKEN_STRING
-    {number, NULL, PREC_NONE},        // TOKEN_NUMBER
-    {NULL, NULL, PREC_AND},           // TOKEN_AND
-    {NULL, NULL, PREC_NONE},          // TOKEN_CLASS
-    {NULL, NULL, PREC_NONE},          // TOKEN_ELSE
-    {literal, NULL, PREC_NONE},       // TOKEN_FALSE
-    {NULL, NULL, PREC_NONE},          // TOKEN_FOR
-    {NULL, NULL, PREC_NONE},          // TOKEN_FUN
-    {NULL, NULL, PREC_NONE},          // TOKEN_IF
-    {literal, NULL, PREC_NONE},       // TOKEN_NIL
-    {NULL, NULL, PREC_OR},            // TOKEN_OR
-    {NULL, NULL, PREC_NONE},          // TOKEN_PRINT
-    {NULL, NULL, PREC_NONE},          // TOKEN_RETURN
-    {NULL, NULL, PREC_NONE},          // TOKEN_SUPER
-    {NULL, NULL, PREC_NONE},          // TOKEN_THIS
-    {literal, NULL, PREC_NONE},       // TOKEN_TRUE
-    {NULL, NULL, PREC_NONE},          // TOKEN_VAR
-    {NULL, NULL, PREC_NONE},          // TOKEN_WHILE
-    {NULL, NULL, PREC_NONE},          // TOKEN_ERROR
-    {NULL, NULL, PREC_NONE},          // TOKEN_EOF
+    [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
+    [TOKEN_STRING] = {string, NULL, PREC_NONE},  // TOKEN_STRING
+    {number, NULL, PREC_NONE},                   // TOKEN_NUMBER
+    {NULL, NULL, PREC_AND},                      // TOKEN_AND
+    {NULL, NULL, PREC_NONE},                     // TOKEN_CLASS
+    {NULL, NULL, PREC_NONE},                     // TOKEN_ELSE
+    {literal, NULL, PREC_NONE},                  // TOKEN_FALSE
+    {NULL, NULL, PREC_NONE},                     // TOKEN_FOR
+    {NULL, NULL, PREC_NONE},                     // TOKEN_FUN
+    {NULL, NULL, PREC_NONE},                     // TOKEN_IF
+    {literal, NULL, PREC_NONE},                  // TOKEN_NIL
+    {NULL, NULL, PREC_OR},                       // TOKEN_OR
+    {NULL, NULL, PREC_NONE},                     // TOKEN_PRINT
+    {NULL, NULL, PREC_NONE},                     // TOKEN_RETURN
+    {NULL, NULL, PREC_NONE},                     // TOKEN_SUPER
+    {NULL, NULL, PREC_NONE},                     // TOKEN_THIS
+    {literal, NULL, PREC_NONE},                  // TOKEN_TRUE
+    {NULL, NULL, PREC_NONE},                     // TOKEN_VAR
+    {NULL, NULL, PREC_NONE},                     // TOKEN_WHILE
+    {NULL, NULL, PREC_NONE},                     // TOKEN_ERROR
+    {NULL, NULL, PREC_NONE},                     // TOKEN_EOF
 };
 
 static Chunk *currentChunk();
@@ -136,6 +139,20 @@ bool compile(const char *source, Chunk *chunk) {
 
 static void expression() {
     parsePrecedence(PREC_ASSIGNMENT);  // ?
+}
+
+static uint8_t identifierConstant(Token *name) {
+    return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+}
+
+static uint8_t parseVariable(const char *errorMessage) {
+    consume(TOKEN_IDENTIFIER, errorMessage);
+
+    return identifierConstant(&parser.previous);
+}
+
+static void defineVariable(uint8_t global) {
+    emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
 static void varDeclaration() {
@@ -245,20 +262,6 @@ static void parsePrecedence(Precedence precedence) {
     }
 }
 
-static uint8_t identifierConstant(Token *name) {
-    return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
-}
-
-static uint8_t parseVariable(const char *errorMessage) {
-    consume(TOKEN_IDENTIFIER, errorMessage);
-
-    return identifierConstant(&parser.previous);
-}
-
-static void defineVariable(uint8_t global) {
-    emitBytes(OP_DEFINE_GLOBAL, global);
-}
-
 static ParseRule *getRule(TokenType type) { return &rules[type]; }
 
 static void advance() {
@@ -363,7 +366,7 @@ static void unary() {
             emitByte(OP_NEGATE);
             break;
         default:
-            return;  // unreachable
+            return;
     }
 }
 
@@ -377,6 +380,13 @@ static void number() {
 static void string() {
     emitConstant(OBJ_VAL(
         copyString(parser.previous.start + 1, parser.previous.length - 2)));
+}
+
+static void variable() { namedVariable(parser.previous); }
+
+static void namedVariable(Token name) {
+    uint8_t arg = identifierConstant(&name);
+    emitBytes(OP_GET_GLOBAL, arg);
 }
 
 // translate to bytecode

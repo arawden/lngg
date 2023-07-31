@@ -1,3 +1,8 @@
 print "st" + "ri" + "ng" + " theorist";
 
 print 5+7;
+
+var beverage = "doctor pepper";
+var slogan = "for ailments of the mind and spirit";
+
+print beverage + slogan;
