@@ -7,3 +7,7 @@ var slogan = "for ailments of the mind and spirit";
 
 beverage = beverage + ", " + slogan;
 print beverage;
+
+var x = 5+7;
+var b = 16;
+print x+b;

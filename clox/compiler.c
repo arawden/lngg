@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "scanner.h"
@@ -62,6 +63,7 @@ static ParseRule *getRule(TokenType);
 static void advance();
 static void consume(TokenType, const char *);
 static bool match(TokenType type);
+static bool check(TokenType type);
 
 static void expression();
 static void statement();
@@ -78,6 +80,7 @@ static void number(bool canAssign);
 static void string(bool canAssign);
 static void variable(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
+static void declareVariable();
 
 ParseRule rules[] = {
     {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
@@ -169,19 +172,71 @@ static void block() {
 
 static void beginScope() { current->scopeDepth++; }
 
-static void endScope() { current->scopeDepth--; }
+static void endScope() {
+    current->scopeDepth--;
+
+    while (current->localCount > 0 &&
+           current->locals[current->localCount - 1].depth >
+               current->scopeDepth) {
+        emitByte(OP_POP);
+        current->localCount--;
+    }
+}
 
 static uint8_t identifierConstant(Token *name) {
     return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
 }
 
+static bool identifiersEqual(Token *a, Token *b) {
+    if (a->length != b->length) return false;
+
+    return memcmp(a->start, b->start, a->length) == 0;
+}
+
+static void addLocal(Token name) {
+    if (current->localCount == UINT8_COUNT) {
+        error("Too many locals defined");
+        return;
+    }
+
+    Local *local = &current->locals[current->localCount++];
+    local->name = name;
+    local->depth = current->scopeDepth;
+}
+
+static void declareVariable() {
+    if (current->scopeDepth == 0) return;
+
+    Token *name = &parser.previous;
+
+    for (int i = current->localCount - 1; i >= 0; i--) {
+        Local *local = &current->locals[i];
+        if (local->depth != -1 && local->depth < current->scopeDepth) {
+            break;
+        }
+
+        if (identifiersEqual(name, &local->name)) {
+            error("conflicting variable names in this scope");
+        }
+    }
+
+    addLocal(*name);
+}
+
 static uint8_t parseVariable(const char *errorMessage) {
     consume(TOKEN_IDENTIFIER, errorMessage);
+
+    declareVariable();
+    if (current->scopeDepth > 0) {
+        return 0;
+    }
 
     return identifierConstant(&parser.previous);
 }
 
 static void defineVariable(uint8_t global) {
+    if (current->scopeDepth > 0) return;
+
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
