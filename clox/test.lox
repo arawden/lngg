@@ -7,3 +7,12 @@ var slogan = "for ailments of the mind and spirit";
 
 beverage = beverage + ", " + slogan;
 print beverage;
+
+{
+    var outer = 3;
+    {
+        var inner = 6;
+        
+        print inner+outer;
+    }
+}
