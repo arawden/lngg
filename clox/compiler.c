@@ -298,6 +298,7 @@ static void ifStatement() {
     emitByte(OP_POP);
 
     if (match(TOKEN_ELSE)) statement();
+    patchJump(elseJump);
 }
 
 static void printStatement() {

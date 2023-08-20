@@ -12,3 +12,7 @@ print beverage;
         print inner+outer;
     }
 }
+
+if (true) {
+    print "es la verdad";
+}
