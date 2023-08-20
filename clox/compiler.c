@@ -131,6 +131,8 @@ static void emitConstant(Value);
 static uint8_t makeConstant(Value);
 static void emitBytes(uint8_t, uint8_t);
 static void emitByte(uint8_t);
+static int emitJump(uint8_t);
+static void patchJump(int);
 
 static void errorAtCurrent(const char *);
 static void error(const char *);
@@ -282,6 +284,22 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
+static void ifStatement() {
+    consume(TOKEN_LEFT_PAREN, "expect '(' after 'if'");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "expect ')' after condition");
+
+    int thenJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    statement();
+    int elseJump = emitJump(OP_JUMP);
+
+    patchJump(thenJump);
+    emitByte(OP_POP);
+
+    if (match(TOKEN_ELSE)) statement();
+}
+
 static void printStatement() {
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after value.");
@@ -326,6 +344,8 @@ static void declaration() {
 static void statement() {
     if (match(TOKEN_PRINT)) {
         printStatement();
+    } else if (match(TOKEN_IF)) {
+        ifStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
         block();
@@ -526,7 +546,19 @@ static Chunk *currentChunk() { return compilingChunk; }
 static void emitConstant(Value value) {
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
+static void patchJump(int offset) {
+    // -2 = adjustment for bytecode for jump offset
+    int jump = currentChunk()->count - offset - 2;
 
+    if (jump > UINT16_MAX) {
+        error("jump outside acceptable range");
+    }
+
+    currentChunk()->code[offset] = (jump >> 8) & 0xff;
+    currentChunk()->code[offset + 1] = jump & 0xff;
+}
+
+// $debt this feels out of place
 static void initCompiler(Compiler *compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
@@ -546,6 +578,14 @@ static uint8_t makeConstant(Value value) {
 }
 
 static void emitReturn() { emitByte(OP_RETURN); }
+
+static int emitJump(uint8_t instruction) {
+    emitByte(instruction);
+    emitByte(0xff);
+    emitByte(0xff);
+
+    return currentChunk()->count - 2;
+}
 
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
     emitByte(byte1);
