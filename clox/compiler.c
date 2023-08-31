@@ -71,7 +71,11 @@ static void declaration();
 static void beginScope();
 static void block();
 static void endScope();
+static void whileStatement();
+static void forStatement();
 
+static void and_(bool canAssign);
+static void or_(bool canAssign);
 static void grouping(bool canAssign);
 static void literal(bool canAssign);
 static void binary(bool canAssign);
@@ -81,6 +85,21 @@ static void string(bool canAssign);
 static void variable(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
 static void declareVariable();
+
+static Chunk *currentChunk();
+static void emitConstant(Value);
+static uint8_t makeConstant(Value);
+static void emitLoop(int);
+static void emitBytes(uint8_t, uint8_t);
+static void emitByte(uint8_t);
+static int emitJump(uint8_t);
+static void patchJump(int);
+
+static void errorAtCurrent(const char *);
+static void error(const char *);
+static void errorAt(Token *, const char *);
+
+static void endCompiler();
 
 ParseRule rules[] = {
     {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
@@ -104,39 +123,28 @@ ParseRule rules[] = {
     {NULL, binary, PREC_COMPARISON},  // TOKEN_LESS_EQUAL
     {NULL, NULL, PREC_NONE},          // TOKEN_IDENTIFIER
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
-    [TOKEN_STRING] = {string, NULL, PREC_NONE},  // TOKEN_STRING
-    {number, NULL, PREC_NONE},                   // TOKEN_NUMBER
-    {NULL, NULL, PREC_AND},                      // TOKEN_AND
-    {NULL, NULL, PREC_NONE},                     // TOKEN_CLASS
-    {NULL, NULL, PREC_NONE},                     // TOKEN_ELSE
-    {literal, NULL, PREC_NONE},                  // TOKEN_FALSE
-    {NULL, NULL, PREC_NONE},                     // TOKEN_FOR
-    {NULL, NULL, PREC_NONE},                     // TOKEN_FUN
-    {NULL, NULL, PREC_NONE},                     // TOKEN_IF
-    {literal, NULL, PREC_NONE},                  // TOKEN_NIL
-    {NULL, NULL, PREC_OR},                       // TOKEN_OR
-    {NULL, NULL, PREC_NONE},                     // TOKEN_PRINT
-    {NULL, NULL, PREC_NONE},                     // TOKEN_RETURN
-    {NULL, NULL, PREC_NONE},                     // TOKEN_SUPER
-    {NULL, NULL, PREC_NONE},                     // TOKEN_THIS
-    {literal, NULL, PREC_NONE},                  // TOKEN_TRUE
-    {NULL, NULL, PREC_NONE},                     // TOKEN_VAR
-    {NULL, NULL, PREC_NONE},                     // TOKEN_WHILE
-    {NULL, NULL, PREC_NONE},                     // TOKEN_ERROR
-    {NULL, NULL, PREC_NONE},                     // TOKEN_EOF
+    [TOKEN_STRING] = {string, NULL, PREC_NONE},
+    [TOKEN_AND] = {NULL, and_, PREC_AND},
+    [TOKEN_OR] = {NULL, or_, PREC_OR},
+    [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
+    [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
+    {NULL, NULL, PREC_NONE},     // TOKEN_ELSE
+    {literal, NULL, PREC_NONE},  // TOKEN_FALSE
+    [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
+    {NULL, NULL, PREC_NONE},     // TOKEN_FUN
+    {NULL, NULL, PREC_NONE},     // TOKEN_IF
+    {literal, NULL, PREC_NONE},  // TOKEN_NIL
+    {NULL, NULL, PREC_OR},       // TOKEN_OR
+    {NULL, NULL, PREC_NONE},     // TOKEN_PRINT
+    {NULL, NULL, PREC_NONE},     // TOKEN_RETURN
+    {NULL, NULL, PREC_NONE},     // TOKEN_SUPER
+    {NULL, NULL, PREC_NONE},     // TOKEN_THIS
+    {literal, NULL, PREC_NONE},  // TOKEN_TRUE
+    {NULL, NULL, PREC_NONE},     // TOKEN_VAR
+    {NULL, NULL, PREC_NONE},     // TOKEN_WHILE
+    {NULL, NULL, PREC_NONE},     // TOKEN_ERROR
+    {NULL, NULL, PREC_NONE},     // TOKEN_EOF
 };
-
-static Chunk *currentChunk();
-static void emitConstant(Value);
-static uint8_t makeConstant(Value);
-static void emitBytes(uint8_t, uint8_t);
-static void emitByte(uint8_t);
-
-static void errorAtCurrent(const char *);
-static void error(const char *);
-static void errorAt(Token *, const char *);
-
-static void endCompiler();
 
 bool compile(const char *source, Chunk *chunk) {
     initScanner(source);
@@ -197,8 +205,9 @@ static int resolveLocal(Compiler *compiler, Token *name) {
     for (int i = compiler->localCount - 1; i >= 0; i--) {
         Local *local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
-            if (local->depth == -1)
+            if (local->depth == -1) {
                 error("can't read local variable in initializer");
+            }
             return i;
         }
     }
@@ -261,6 +270,26 @@ static void defineVariable(uint8_t global) {
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
+static void and_(bool canAssign) {
+    int endJump = emitJump(OP_JUMP_IF_FALSE);
+
+    emitByte(OP_POP);
+    parsePrecedence(PREC_AND);
+
+    patchJump(endJump);
+}
+
+static void or_(bool canAssign) {
+    int elseJump = emitJump(OP_JUMP_IF_FALSE);
+    int endJump = emitJump(OP_JUMP);
+
+    patchJump(elseJump);
+    emitByte(OP_POP);
+
+    parsePrecedence(PREC_OR);
+    patchJump(endJump);
+}
+
 static void varDeclaration() {
     uint8_t global = parseVariable("Expect variable name.");
 
@@ -282,6 +311,81 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
+static void ifStatement() {
+    consume(TOKEN_LEFT_PAREN, "expect '(' after 'if'");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "expect ')' after condition");
+
+    int thenJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    statement();
+    int elseJump = emitJump(OP_JUMP);
+
+    patchJump(thenJump);
+    emitByte(OP_POP);
+
+    if (match(TOKEN_ELSE)) statement();
+    patchJump(elseJump);
+}
+
+static void whileStatement() {
+    int loopStart = currentChunk()->count;
+    consume(TOKEN_LEFT_PAREN, "expect '(' after 'while'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "expect ')' after condition");
+
+    int exitJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    statement();
+    emitLoop(loopStart);
+
+    patchJump(exitJump);
+    emitByte(OP_POP);
+}
+
+static void forStatement() {
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "expect '(' after 'for'.");
+    if (match(TOKEN_SEMICOLON)) {
+        // empty initializer
+    } else if (match(TOKEN_VAR)) {
+        varDeclaration();
+    } else {
+        expressionStatement();
+    }
+
+    int loopStart = currentChunk()->count;
+    int exitJump = -1;
+    if (!match(TOKEN_SEMICOLON)) {
+        expression();
+
+        consume(TOKEN_SEMICOLON, "expect ';' for loop.");
+        exitJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+    }
+    if (!match(TOKEN_RIGHT_PAREN)) {
+        int bodyJump = emitJump(OP_JUMP);
+        int incrementStart = currentChunk()->count;
+        expression();
+        emitByte(OP_POP);
+        consume(TOKEN_RIGHT_PAREN, "expect ';' for loop.");
+
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    statement();
+    emitLoop(loopStart);
+
+    if (exitJump != -1) {
+        patchJump(exitJump);
+        emitByte(OP_POP);
+    }
+
+    endScope();
+}
 static void printStatement() {
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after value.");
@@ -326,6 +430,12 @@ static void declaration() {
 static void statement() {
     if (match(TOKEN_PRINT)) {
         printStatement();
+    } else if (match(TOKEN_FOR)) {
+        forStatement();
+    } else if (match(TOKEN_IF)) {
+        ifStatement();
+    } else if (match(TOKEN_WHILE)) {
+        whileStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
         block();
@@ -526,7 +636,19 @@ static Chunk *currentChunk() { return compilingChunk; }
 static void emitConstant(Value value) {
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
+static void patchJump(int offset) {
+    // -2 = adjustment for bytecode for jump offset
+    int jump = currentChunk()->count - offset - 2;
 
+    if (jump > UINT16_MAX) {
+        error("jump outside acceptable range");
+    }
+
+    currentChunk()->code[offset] = (jump >> 8) & 0xff;
+    currentChunk()->code[offset + 1] = jump & 0xff;
+}
+
+// $debt this feels out of place
 static void initCompiler(Compiler *compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
@@ -546,6 +668,22 @@ static uint8_t makeConstant(Value value) {
 }
 
 static void emitReturn() { emitByte(OP_RETURN); }
+
+static int emitJump(uint8_t instruction) {
+    emitByte(instruction);
+    emitByte(0xff);
+    emitByte(0xff);
+
+    return currentChunk()->count - 2;
+}
+
+static void emitLoop(int loopStart) {
+    emitByte(OP_LOOP);
+
+    int offset = currentChunk()->count - loopStart + 2;
+    emitByte((offset >> 8) & 0xff);
+    emitByte(offset & 0xff);
+}
 
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
     emitByte(byte1);
