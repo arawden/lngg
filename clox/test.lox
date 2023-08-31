@@ -13,8 +13,6 @@ print beverage;
     }
 }
 
-var count = 0;
-while (count < 3) { 
+for (var count = 0; count < 3; count = count+1) {
     print "over and over";
-    count = count + 1;
 }

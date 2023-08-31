@@ -67,11 +67,12 @@ static bool check(TokenType type);
 
 static void expression();
 static void statement();
-static void whileStatement();
 static void declaration();
 static void beginScope();
 static void block();
 static void endScope();
+static void whileStatement();
+static void forStatement();
 
 static void and_(bool canAssign);
 static void or_(bool canAssign);
@@ -84,6 +85,21 @@ static void string(bool canAssign);
 static void variable(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
 static void declareVariable();
+
+static Chunk *currentChunk();
+static void emitConstant(Value);
+static uint8_t makeConstant(Value);
+static void emitLoop(int);
+static void emitBytes(uint8_t, uint8_t);
+static void emitByte(uint8_t);
+static int emitJump(uint8_t);
+static void patchJump(int);
+
+static void errorAtCurrent(const char *);
+static void error(const char *);
+static void errorAt(Token *, const char *);
+
+static void endCompiler();
 
 ParseRule rules[] = {
     {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
@@ -114,7 +130,7 @@ ParseRule rules[] = {
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     {NULL, NULL, PREC_NONE},     // TOKEN_ELSE
     {literal, NULL, PREC_NONE},  // TOKEN_FALSE
-    {NULL, NULL, PREC_NONE},     // TOKEN_FOR
+    [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
     {NULL, NULL, PREC_NONE},     // TOKEN_FUN
     {NULL, NULL, PREC_NONE},     // TOKEN_IF
     {literal, NULL, PREC_NONE},  // TOKEN_NIL
@@ -129,21 +145,6 @@ ParseRule rules[] = {
     {NULL, NULL, PREC_NONE},     // TOKEN_ERROR
     {NULL, NULL, PREC_NONE},     // TOKEN_EOF
 };
-
-static Chunk *currentChunk();
-static void emitConstant(Value);
-static uint8_t makeConstant(Value);
-static void emitLoop(int);
-static void emitBytes(uint8_t, uint8_t);
-static void emitByte(uint8_t);
-static int emitJump(uint8_t);
-static void patchJump(int);
-
-static void errorAtCurrent(const char *);
-static void error(const char *);
-static void errorAt(Token *, const char *);
-
-static void endCompiler();
 
 bool compile(const char *source, Chunk *chunk) {
     initScanner(source);
@@ -342,6 +343,49 @@ static void whileStatement() {
     emitByte(OP_POP);
 }
 
+static void forStatement() {
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "expect '(' after 'for'.");
+    if (match(TOKEN_SEMICOLON)) {
+        // empty initializer
+    } else if (match(TOKEN_VAR)) {
+        varDeclaration();
+    } else {
+        expressionStatement();
+    }
+
+    int loopStart = currentChunk()->count;
+    int exitJump = -1;
+    if (!match(TOKEN_SEMICOLON)) {
+        expression();
+
+        consume(TOKEN_SEMICOLON, "expect ';' for loop.");
+        exitJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+    }
+    if (!match(TOKEN_RIGHT_PAREN)) {
+        int bodyJump = emitJump(OP_JUMP);
+        int incrementStart = currentChunk()->count;
+        expression();
+        emitByte(OP_POP);
+        consume(TOKEN_RIGHT_PAREN, "expect ';' for loop.");
+
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    statement();
+    emitLoop(loopStart);
+
+    if (exitJump != -1) {
+        patchJump(exitJump);
+        emitByte(OP_POP);
+    }
+
+    endScope();
+}
 static void printStatement() {
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after value.");
@@ -386,6 +430,8 @@ static void declaration() {
 static void statement() {
     if (match(TOKEN_PRINT)) {
         printStatement();
+    } else if (match(TOKEN_FOR)) {
+        forStatement();
     } else if (match(TOKEN_IF)) {
         ifStatement();
     } else if (match(TOKEN_WHILE)) {
