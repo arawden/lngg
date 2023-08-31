@@ -13,6 +13,8 @@ print beverage;
     }
 }
 
-if (true) {
-    print "es la verdad";
+var count = 0;
+while (count < 3) { 
+    print "over and over";
+    count = count + 1;
 }
