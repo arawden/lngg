@@ -37,7 +37,6 @@ class Environment {
     values.put(name, value);
   }
 
-
   // Assign a value to a variable
   void assign(Token name, Object value) {
     if (values.containsKey(name.lexeme)) {

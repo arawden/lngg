@@ -1,4 +1,5 @@
 // http://craftinginterpreters.com/appendix-i.html
+
 // Full program
 program → declaration* EOF
 
@@ -17,7 +18,6 @@ varDecl → "var" IDENTIFIER ( "=" expression )? ";"
 
 
 // Declarations → Statements
-// I chose to re-order these to emphasize control flow
 statement → exprStmt
           | ifStmt
           | whileStmt
@@ -78,7 +78,6 @@ arguments → expression ( "," expression )*
 
 
 // Lexical
-// I rewrote STRING and the last 2 with regex
 NUMER → DIGIT+ ( "." DIGIT+ )?
 STRING → '"' [^"] '"'
 IDENTIFIER → ALPHA (ALPHA | DIGIT)*
