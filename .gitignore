@@ -1,2 +1,4 @@
+jlox/build/*
 jlox/*.class
+
 clox/clox

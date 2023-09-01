@@ -1,0 +1,28 @@
+name: clox
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  review:
+    name: "review"
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: jlox 
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '19'
+
+      - name: build
+        run: javac -d jlox *.java
+      
+      - name: check test file
+        run: java -classpath ./build jlox.Lox
