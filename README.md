@@ -1,12 +1,8 @@
 # LNGG
+_(not to be confused with LNG, liquid natural gas)_
+
 http://craftinginterpreters.com/introduction.html
 
-Up to part [III](http://craftinginterpreters.com/a-bytecode-virtual-machine.html)
-
-## AST types
-["Also, as we add new syntax tree types, I won’t bother showing the necessary visit methods for them in AstPrinter. If you want to (and you want the Java compiler to not yell at you), go ahead and add them yourself."](https://github.com/munificent/craftinginterpreters/blob/master/java/com/craftinginterpreters/lox/AstPrinter.java)
-
-Use `diff <(grep -o 'visit.[a-z]*' AstPrinter.java) <(grep -o 'visit.[a-z]*' Interpreter.java)` to check which functions haven't been covered in `AstPrinter.java`
 
 ## Running the Interpreter
 From `.`:

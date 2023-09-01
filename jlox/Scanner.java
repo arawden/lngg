@@ -16,22 +16,22 @@ class Scanner {
   private static final Map<String, TokenType> keywords;
   static {
     keywords = new HashMap<>();
-    keywords.put("and",    AND);
-    keywords.put("class",  CLASS);
-    keywords.put("else",   ELSE);
-    keywords.put("false",  FALSE);
-    keywords.put("for",    FOR);
-    keywords.put("fun",    FUN);
-    keywords.put("if",     IF);
-    keywords.put("nil",    NIL);
-    keywords.put("or",     OR);
-    keywords.put("print",  PRINT);
+    keywords.put("and", AND);
+    keywords.put("class", CLASS);
+    keywords.put("else", ELSE);
+    keywords.put("false", FALSE);
+    keywords.put("for", FOR);
+    keywords.put("fun", FUN);
+    keywords.put("if", IF);
+    keywords.put("nil", NIL);
+    keywords.put("or", OR);
+    keywords.put("print", PRINT);
     keywords.put("return", RETURN);
-    keywords.put("super",  SUPER);
-    keywords.put("this",   THIS);
-    keywords.put("true",   TRUE);
-    keywords.put("var",    VAR);
-    keywords.put("while",  WHILE);
+    keywords.put("super", SUPER);
+    keywords.put("this", THIS);
+    keywords.put("true", TRUE);
+    keywords.put("var", VAR);
+    keywords.put("while", WHILE);
   }
 
   private int start = 0;
@@ -45,11 +45,11 @@ class Scanner {
   List<Token> scanTokens() {
     while (!isAtEnd()) {
       // Beginning of next lexeme
-      start = current;
+      this.start = this.current;
       scanToken();
     }
 
-    tokens.add(new Token(EOF, "", null, line));
+    this.tokens.add(new Token(EOF, "", null, line));
     return tokens;
   }
 
@@ -58,57 +58,60 @@ class Scanner {
     char c = advance();
     switch (c) {
       case '(':
-        addToken(LEFT_PAREN);
+        // $debt feels like it should be possible to call a class and get back
+        // a new token and append here instead
+        tokens.add(createToken(LEFT_PAREN));
         break;
       case ')':
-        addToken(RIGHT_PAREN);
+        tokens.add(createToken(RIGHT_PAREN));
         break;
       case '{':
-        addToken(LEFT_BRACE);
+        tokens.add(createToken(LEFT_BRACE));
         break;
       case '}':
-        addToken(RIGHT_BRACE);
+        tokens.add(createToken(RIGHT_BRACE));
         break;
       case ',':
-        addToken(COMMA);
+        tokens.add(createToken(COMMA));
         break;
       case '.':
-        addToken(DOT);
+        tokens.add(createToken(DOT));
         break;
       case '-':
-        addToken(MINUS);
+        tokens.add(createToken(MINUS));
         break;
       case '+':
-        addToken(PLUS);
+        tokens.add(createToken(PLUS));
         break;
       case ';':
-        addToken(SEMICOLON);
+        tokens.add(createToken(SEMICOLON));
         break;
       case '*':
-        addToken(STAR);
+        tokens.add(createToken(STAR));
         break;
 
       // Equality
       case '!':
-        addToken(match('=') ? BANG_EQUAL : BANG);
+        tokens.add(createToken(match('=') ? BANG_EQUAL : BANG));
         break;
       case '=':
-        addToken(match('=') ? EQUAL_EQUAL : EQUAL);
+        tokens.add(createToken(match('=') ? EQUAL_EQUAL : EQUAL));
         break;
       case '<':
-        addToken(match('=') ? LESS_EQUAL : LESS);
+        tokens.add(createToken(match('=') ? LESS_EQUAL : LESS));
         break;
       case '>':
-        addToken(match('=') ? GREATER_EQUAL : GREATER);
+        tokens.add(createToken(match('=') ? GREATER_EQUAL : GREATER));
         break;
 
       // Comments
       case '/':
         if (match('/')) {
           // Comment goes until end of line
-          while (peek() != '\n' && !isAtEnd()) advance();
+          while (peek() != '\n' && !isAtEnd())
+            advance();
         } else {
-          addToken(SLASH);
+          createToken(SLASH);
         }
         break;
 
@@ -150,7 +153,7 @@ class Scanner {
       type = IDENTIFIER;
     }
 
-    addToken(type);
+    tokens.add(createToken(type));
   }
 
   private void number() {
@@ -168,7 +171,7 @@ class Scanner {
     }
 
     // Numbers are represented as Java doubles
-    addToken(NUMBER, Double.parseDouble(source.substring(start, current)));
+    tokens.add(createTokenLiteral(NUMBER, Double.parseDouble(source.substring(start, current))));
   }
 
   private void string() {
@@ -189,9 +192,9 @@ class Scanner {
     advance();
 
     // Trim surrounding quotes
-    String value = source.substring(start+1, current-1);
+    String value = source.substring(start + 1, current - 1);
 
-    addToken(STRING, value);
+    tokens.add(createTokenLiteral(STRING, value));
   }
 
   // Does this character match what we expected?
@@ -208,7 +211,7 @@ class Scanner {
     return true;
   }
 
-  // Lookahead
+  // $projection `lookahead`
   private char peek() {
     if (isAtEnd()) {
       return '\0';
@@ -218,17 +221,17 @@ class Scanner {
   }
 
   private char peekNext() {
-    if (current + 1 >= source.length()){
+    if (current + 1 >= source.length()) {
       return '\0';
     }
 
-    return source.charAt(current+1);
+    return source.charAt(current + 1);
   }
 
   private boolean isAlpha(char c) {
     return (c >= 'a' && c <= 'z') ||
-           (c >= 'A' && c <= 'Z') ||
-           c == '_';
+        (c >= 'A' && c <= 'Z') ||
+        c == '_';
   }
 
   private boolean isAlphanumeric(char c) {
@@ -239,7 +242,6 @@ class Scanner {
     return c >= '0' && c <= '9';
   }
 
-  // Have we consumed all characters?
   private boolean isAtEnd() {
     return current >= source.length();
   }
@@ -247,17 +249,15 @@ class Scanner {
   // Read next charactrer
   private char advance() {
     current++;
-    return source.charAt(current-1);
+    return source.charAt(current - 1);
   }
 
-  // Create a token
-  private void addToken(TokenType type) {
-    addToken(type, null);
+  private Token createToken(TokenType type) {
+    return createTokenLiteral(type, null);
   }
 
-  // Create a token with a literal value
-  private void addToken(TokenType type, Object literal) {
+  private Token createTokenLiteral(TokenType type, Object literal) {
     String text = source.substring(start, current);
-    tokens.add(new Token(type, text, literal, line));
+    return new Token(type, text, literal, line);
   }
 }
