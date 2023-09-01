@@ -1,4 +1,4 @@
-name: clox
+name: jlox
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
           java-version: '19'
 
       - name: build
-        run: javac -d jlox *.java
+        run: javac -d build *.java
       
       - name: check test file
         run: java -classpath ./build jlox.Lox
