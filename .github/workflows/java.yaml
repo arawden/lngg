@@ -25,4 +25,4 @@ jobs:
         run: javac -d build *.java
       
       - name: check test file
-        run: java -classpath ./build jlox.Lox
+        run: java -classpath ./build jlox.Lox test.lox

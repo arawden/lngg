@@ -45,7 +45,7 @@ class Scanner {
   List<Token> scanTokens() {
     while (!isAtEnd()) {
       // Beginning of next lexeme
-      this.start = this.current;
+      start = current;
       scanToken();
     }
 
@@ -111,7 +111,7 @@ class Scanner {
           while (peek() != '\n' && !isAtEnd())
             advance();
         } else {
-          createToken(SLASH);
+          tokens.add(createToken(SLASH));
         }
         break;
 
