@@ -45,18 +45,23 @@ typedef struct {
     int depth;
 } Local;
 
+typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
+
 typedef struct {
+    ObjFunction *function;
+    FunctionType type;
+
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
 } Compiler;
 
 Compiler *current = NULL;
-Chunk *compilingChunk;
+static Chunk *currentChunk() { return &current->function->chunk; }
 
 Parser parser;
 
-static void initCompiler(Compiler *);
+static void initCompiler(Compiler *, FunctionType);
 static void parsePrecedence(Precedence);
 static ParseRule *getRule(TokenType);
 
@@ -99,7 +104,7 @@ static void errorAtCurrent(const char *);
 static void error(const char *);
 static void errorAt(Token *, const char *);
 
-static void endCompiler();
+static ObjFunction *endCompiler();
 
 ParseRule rules[] = {
     {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
@@ -146,13 +151,12 @@ ParseRule rules[] = {
     {NULL, NULL, PREC_NONE},     // TOKEN_EOF
 };
 
-bool compile(const char *source, Chunk *chunk) {
+ObjFunction *compile(const char *source) {
     initScanner(source);
 
     Compiler compiler;
-    initCompiler(&compiler);
+    initCompiler(&compiler, TYPE_SCRIPT);
 
-    compilingChunk = chunk;
     parser.hadError = false;
     parser.panicMode = false;
 
@@ -161,9 +165,8 @@ bool compile(const char *source, Chunk *chunk) {
         declaration();
     }
 
-    endCompiler();
-
-    return !parser.hadError;
+    ObjFunction *function = endCompiler();
+    return !parser.hadError ? NULL : function;
 }
 
 static void expression() {
@@ -630,9 +633,6 @@ static void namedVariable(Token name, bool canAssign) {
     }
 }
 
-// translate to bytecode
-static Chunk *currentChunk() { return compilingChunk; }
-
 static void emitConstant(Value value) {
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
@@ -649,10 +649,19 @@ static void patchJump(int offset) {
 }
 
 // $debt this feels out of place
-static void initCompiler(Compiler *compiler) {
+static void initCompiler(Compiler *compiler, FunctionType type) {
+    compiler->function = NULL;
+    compiler->type = type;
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+
+    compiler->function = newFunction();
     current = compiler;
+
+    Local *local = &current->locals[current->localCount++];
+    local->depth = 0;
+    local->name.start = "";
+    local->name.length = 0;
 }
 
 static uint8_t makeConstant(Value value) {
@@ -724,12 +733,17 @@ static void errorAt(Token *token, const char *message) {
     parser.hadError = true;
 }
 
-static void endCompiler() {
+static ObjFunction *endCompiler() {
     emitReturn();
+    ObjFunction *function = current->function;
 
 #ifdef DEBUG_PRINT_CODE
     if (!parser.hadError) {
-        disassembleChunk(currentChunk(), "code");
+        disassembleChunk(currentChunk(), function->name != NULL
+                                             ? function->name->chars
+                                             : "<script>");
     }
 #endif
+
+    return function;
 }
