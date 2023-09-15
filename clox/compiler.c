@@ -47,7 +47,8 @@ typedef struct {
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
 
-typedef struct {
+typedef struct Compiler {
+    struct Compiler *enclosing;
     ObjFunction *function;
     FunctionType type;
 
@@ -69,13 +70,17 @@ static void advance();
 static void consume(TokenType, const char *);
 static bool match(TokenType type);
 static bool check(TokenType type);
+static void markInitialized();
 
 static void expression();
 static void statement();
 static void declaration();
+static void varDeclaration();
 static void beginScope();
 static void block();
 static void endScope();
+static void function(FunctionType);
+static void funDeclaration();
 static void whileStatement();
 static void forStatement();
 
@@ -88,9 +93,11 @@ static void unary(bool canAssign);
 static void number(bool canAssign);
 static void string(bool canAssign);
 static void variable(bool canAssign);
+static void defineVariable(uint8_t);
 static void namedVariable(Token name, bool canAssign);
 static void declareVariable();
 
+static uint8_t parseVariable(const char *);
 static Chunk *currentChunk();
 static void emitConstant(Value);
 static uint8_t makeConstant(Value);
@@ -179,6 +186,38 @@ static void block() {
     }
 
     consume(TOKEN_RIGHT_BRACE, "expect '}' after block");
+}
+
+static void funDeclaration() {
+    uint8_t global = parseVariable("expect function name");
+    markInitialized();
+    function(TYPE_FUNCTION);
+    defineVariable(global);
+}
+
+static void function(FunctionType type) {
+    Compiler compiler;
+    initCompiler(&compiler, type);
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "expect '(' after function name");
+    if (!check(TOKEN_RIGHT_PAREN)) {
+        do {
+            current->function->arity++;
+            if (current->function->arity > 255) {
+                errorAtCurrent("exceeded limit of 255 parameters");
+            }
+            uint8_t constant = parseVariable("expect parameter name");
+            defineVariable(constant);
+        } while (match(TOKEN_COMMA));
+    }
+
+    consume(TOKEN_RIGHT_PAREN, "expect ')' after parameters");
+    consume(TOKEN_LEFT_BRACE, "expect '{' before function body");
+    block();
+
+    ObjFunction *function = endCompiler();
+    emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
 }
 
 static void beginScope() { current->scopeDepth++; }
@@ -419,7 +458,9 @@ static void synchronize() {
 }
 
 static void declaration() {
-    if (match(TOKEN_VAR)) {
+    if (match(TOKEN_FUN)) {
+        funDeclaration();
+    } else if (match(TOKEN_VAR)) {
         varDeclaration();
     } else {
         statement();
@@ -648,8 +689,8 @@ static void patchJump(int offset) {
     currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
-// $debt this feels out of place
 static void initCompiler(Compiler *compiler, FunctionType type) {
+    compiler->enclosing = current;
     compiler->function = NULL;
     compiler->type = type;
     compiler->localCount = 0;
@@ -657,6 +698,11 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 
     compiler->function = newFunction();
     current = compiler;
+
+    if (type != TYPE_SCRIPT) {
+        current->function->name =
+            copyString(parser.previous.start, parser.previous.length);
+    }
 
     Local *local = &current->locals[current->localCount++];
     local->depth = 0;
@@ -745,5 +791,6 @@ static ObjFunction *endCompiler() {
     }
 #endif
 
+    current = current->enclosing;
     return function;
 }
