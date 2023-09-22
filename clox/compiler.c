@@ -86,6 +86,7 @@ static void forStatement();
 
 static void and_(bool canAssign);
 static void or_(bool canAssign);
+static void call(bool canAssign);
 static void grouping(bool canAssign);
 static void literal(bool canAssign);
 static void binary(bool canAssign);
@@ -96,6 +97,7 @@ static void variable(bool canAssign);
 static void defineVariable(uint8_t);
 static void namedVariable(Token name, bool canAssign);
 static void declareVariable();
+static uint8_t argumentList();
 
 static uint8_t parseVariable(const char *);
 static Chunk *currentChunk();
@@ -114,8 +116,8 @@ static void errorAt(Token *, const char *);
 static ObjFunction *endCompiler();
 
 ParseRule rules[] = {
-    {grouping, NULL, PREC_CALL},      // TOKEN_LEFT_PAREN
-    {NULL, NULL, PREC_NONE},          // TOKEN_RIGHT_PAREN
+    [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_CALL},
+    [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     {NULL, NULL, PREC_NONE},          // TOKEN_LEFT_BRACE
     {NULL, NULL, PREC_NONE},          // TOKEN_RIGHT_BRACE
     {NULL, NULL, PREC_NONE},          // TOKEN_COMMA
@@ -300,6 +302,8 @@ static uint8_t parseVariable(const char *errorMessage) {
 }
 
 static void markInitialized() {
+    if (current->scopeDepth == 0) return;
+
     current->locals[current->localCount - 1].depth = current->scopeDepth;
 }
 
@@ -310,6 +314,22 @@ static void defineVariable(uint8_t global) {
     }
 
     emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
+static uint8_t argumentList() {
+    uint8_t argCount = 0;
+    if (!check(TOKEN_RIGHT_PAREN)) {
+        do {
+            expression();
+            if (argCount == 255) {
+                error("exceeded limit of 255 arguments");
+            }
+            argCount++;
+        } while (match(TOKEN_COMMA));
+    }
+
+    consume(TOKEN_RIGHT_PAREN, "expect ')' after argument set");
+    return argCount;
 }
 
 static void and_(bool canAssign) {
@@ -574,6 +594,11 @@ static void grouping(bool canAssign) {
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
+static void call(bool canAssign) {
+    uint8_t argCount = argumentList();
+    emitBytes(OP_CALL, argCount);
+}
+
 static void binary(bool canAssign) {
     // store operator
     TokenType operatorType = parser.previous.type;
@@ -722,7 +747,10 @@ static uint8_t makeConstant(Value value) {
     return (uint8_t)constant;
 }
 
-static void emitReturn() { emitByte(OP_RETURN); }
+static void emitReturn() {
+    emitByte(OP_NIL);
+    emitByte(OP_RETURN);
+}
 
 static int emitJump(uint8_t instruction) {
     emitByte(instruction);
