@@ -13,13 +13,13 @@ print beverage;
     }
 }
 
+
+for (var count = 0; count < 3; count = count + 1) {
+    print "over and over";
+}
+
 fun band() {
     print "bowery electric";
 }
 
 print band;
-
-for (var count = 0; count < 4; count = count+1) {
-    print "over and over";
-}
-
