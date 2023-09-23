@@ -1,8 +1,7 @@
 var beverage = "doctor pepper";
 var slogan = "for ailments of the mind and spirit";
 
-beverage = beverage + ", " + slogan;
-print beverage;
+print "" + beverage + ", " + slogan;
 
 {
     var outer = 3;
