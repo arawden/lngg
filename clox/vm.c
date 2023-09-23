@@ -236,6 +236,7 @@ static InterpretResult run() {
             }
             case OP_RETURN: {
                 Value result = pop();
+                vm.frameCount--;
                 if (vm.frameCount == 0) {
                     pop();
 
