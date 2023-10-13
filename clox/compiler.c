@@ -83,6 +83,7 @@ static void function(FunctionType);
 static void funDeclaration();
 static void whileStatement();
 static void forStatement();
+static void returnStatement();
 
 static void and_(bool canAssign);
 static void or_(bool canAssign);
@@ -108,6 +109,7 @@ static void emitBytes(uint8_t, uint8_t);
 static void emitByte(uint8_t);
 static int emitJump(uint8_t);
 static void patchJump(int);
+static void emitReturn();
 
 static void errorAtCurrent(const char *);
 static void error(const char *);
@@ -116,7 +118,7 @@ static void errorAt(Token *, const char *);
 static ObjFunction *endCompiler();
 
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_CALL},
+    [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
@@ -455,6 +457,19 @@ static void printStatement() {
     emitByte(OP_PRINT);
 }
 
+static void returnStatement() {
+    if (current->type == TYPE_SCRIPT)
+        error("cannott return from top-level code");
+
+    if (match(TOKEN_SEMICOLON)) {
+        emitReturn();
+    } else {
+        expression();
+        consume(TOKEN_SEMICOLON, "expect ';' after returning value");
+        emitByte(OP_RETURN);
+    }
+}
+
 static void synchronize() {
     parser.panicMode = false;
 
@@ -498,6 +513,8 @@ static void statement() {
         forStatement();
     } else if (match(TOKEN_IF)) {
         ifStatement();
+    } else if (match(TOKEN_RETURN)) {
+        returnStatement();
     } else if (match(TOKEN_WHILE)) {
         whileStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {

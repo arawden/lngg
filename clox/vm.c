@@ -239,7 +239,6 @@ static InterpretResult run() {
                 vm.frameCount--;
                 if (vm.frameCount == 0) {
                     pop();
-
                     return INTERPRET_OK;
                 }
                 vm.stackTop = frame->slots;
