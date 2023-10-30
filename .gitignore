@@ -1,3 +1,6 @@
+.vscode/*.json
+!.vscode/settings.json
+
 jlox/build/*
 jlox/*.class
 

@@ -1,18 +1,16 @@
 var beverage = "doctor pepper";
 var slogan = "for ailments of the mind and spirit";
 
-beverage = beverage + ", " + slogan;
-print beverage;
+print beverage + ", " + slogan;
 
-{
-    var outer = 3;
-    {
-        var inner = 6;
-        
-        print inner+outer;
-    }
-}
-
-for (var count = 0; count < 3; count = count+1) {
+for (var count = 0; count < 3; count = count + 1) {
     print "over and over";
 }
+
+fun band() {
+    return "bowery electric";
+}
+
+print band();
+
+print clock();
