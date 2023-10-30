@@ -836,7 +836,7 @@ static ObjFunction *endCompiler() {
     if (!parser.hadError) {
         disassembleChunk(currentChunk(), function->name != NULL
                                              ? function->name->chars
-                                             : "<script>");
+                                             : "[script]");
     }
 #endif
 

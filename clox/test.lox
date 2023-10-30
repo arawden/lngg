@@ -12,3 +12,5 @@ fun band() {
 }
 
 print band();
+
+print clock();
