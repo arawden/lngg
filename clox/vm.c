@@ -28,6 +28,7 @@ static void resetStack();
 static Value peek(int);
 
 static ObjUpvalue *captureUpvalue(Value *local);
+static void closeUpvalues(Value *last);
 static bool callValue(Value, int);
 static bool call(ObjClosure *, int);
 
@@ -277,7 +278,7 @@ static InterpretResult run() {
                 break;
             }
             case OP_CLOSE_UPVALUE: {
-                closeUpvalues(vm.stack - 1);
+                closeUpvalues(vm.stackTop - 1);
                 pop();
                 break;
             }
@@ -411,7 +412,7 @@ static void closeUpvalues(Value *last) {
         ObjUpvalue *upvalue = vm.openUpvalues;
         upvalue->closed = *upvalue->location;
         upvalue->location = &upvalue->closed;
-        vm.openUpvalues;
+        vm.openUpvalues = upvalue->next;
     }
 }
 
