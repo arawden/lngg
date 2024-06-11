@@ -14,3 +14,16 @@ fun band() {
 print band();
 
 print clock();
+
+
+fun outside() {
+    var environment = "outside";
+    fun inside() {
+        print environment;
+    }
+    
+    return inside;
+}
+
+var air = outside();
+air();
