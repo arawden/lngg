@@ -22,7 +22,8 @@ fun outside() {
         print environment;
     }
     
-    inside();
+    return inside;
 }
 
-outside();
+var air = outside();
+air();

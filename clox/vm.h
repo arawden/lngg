@@ -22,7 +22,8 @@ typedef struct {
     Value *stackTop;  // points where next value will be pushed to
     Table globals;
     Table strings;  // interned strings
-    Obj *objects;   // pointer to head of list of allocated objects
+    ObjUpvalue *openUpvalues;
+    Obj *objects;  // pointer to head of list of allocated objects
 } VM;
 
 typedef enum {
