@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "common.h"
+#include "memory.h"
 #include "scanner.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -54,8 +55,8 @@ typedef struct {
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
 
 typedef struct Compiler {
-    struct Compiler *enclosing;
-    ObjFunction *function;
+    struct Compiler* enclosing;
+    ObjFunction* function;
     FunctionType type;
 
     Local locals[UINT8_COUNT];
@@ -64,17 +65,17 @@ typedef struct Compiler {
     int scopeDepth;
 } Compiler;
 
-Compiler *current = NULL;
-static Chunk *currentChunk() { return &current->function->chunk; }
+Compiler* current = NULL;
+static Chunk* currentChunk() { return &current->function->chunk; }
 
 Parser parser;
 
-static void initCompiler(Compiler *, FunctionType);
+static void initCompiler(Compiler*, FunctionType);
 static void parsePrecedence(Precedence);
-static ParseRule *getRule(TokenType);
+static ParseRule* getRule(TokenType);
 
 static void advance();
-static void consume(TokenType, const char *);
+static void consume(TokenType, const char*);
 static bool match(TokenType type);
 static bool check(TokenType type);
 static void markInitialized();
@@ -107,8 +108,8 @@ static void namedVariable(Token name, bool canAssign);
 static void declareVariable();
 static uint8_t argumentList();
 
-static uint8_t parseVariable(const char *);
-static Chunk *currentChunk();
+static uint8_t parseVariable(const char*);
+static Chunk* currentChunk();
 static void emitConstant(Value);
 static uint8_t makeConstant(Value);
 static void emitLoop(int);
@@ -118,11 +119,11 @@ static int emitJump(uint8_t);
 static void patchJump(int);
 static void emitReturn();
 
-static void errorAtCurrent(const char *);
-static void error(const char *);
-static void errorAt(Token *, const char *);
+static void errorAtCurrent(const char*);
+static void error(const char*);
+static void errorAt(Token*, const char*);
 
-static ObjFunction *endCompiler();
+static ObjFunction* endCompiler();
 
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
@@ -169,7 +170,7 @@ ParseRule rules[] = {
     {NULL, NULL, PREC_NONE},     // TOKEN_EOF
 };
 
-ObjFunction *compile(const char *source) {
+ObjFunction* compile(const char* source) {
     initScanner(source);
 
     Compiler compiler;
@@ -183,8 +184,16 @@ ObjFunction *compile(const char *source) {
         declaration();
     }
 
-    ObjFunction *function = endCompiler();
+    ObjFunction* function = endCompiler();
     return parser.hadError ? NULL : function;
+}
+
+void markCompilerRoots() {
+    Compiler* compiler = current;
+    while (compiler != NULL) {
+        markObject((Obj*)compiler->function);
+        compiler = compiler->enclosing;
+    }
 }
 
 static void expression() {
@@ -227,7 +236,7 @@ static void function(FunctionType type) {
     consume(TOKEN_LEFT_BRACE, "expect '{' before function body");
     block();
 
-    ObjFunction *function = endCompiler();
+    ObjFunction* function = endCompiler();
     emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
 
     for (int i = 0; i < function->upvalueCount; i++) {
@@ -254,19 +263,19 @@ static void endScope() {
     }
 }
 
-static uint8_t identifierConstant(Token *name) {
+static uint8_t identifierConstant(Token* name) {
     return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
 }
 
-static bool identifiersEqual(Token *a, Token *b) {
+static bool identifiersEqual(Token* a, Token* b) {
     if (a->length != b->length) return false;
 
     return memcmp(a->start, b->start, a->length) == 0;
 }
 
-static int resolveLocal(Compiler *compiler, Token *name) {
+static int resolveLocal(Compiler* compiler, Token* name) {
     for (int i = compiler->localCount - 1; i >= 0; i--) {
-        Local *local = &compiler->locals[i];
+        Local* local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
             if (local->depth == -1) {
                 error("can't read local variable in initializer");
@@ -278,11 +287,11 @@ static int resolveLocal(Compiler *compiler, Token *name) {
     return -1;
 }
 
-static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
+static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
     int upvalueCount = compiler->function->upvalueCount;
 
     for (int i = 0; i < upvalueCount; i++) {
-        Upvalue *upvalue = &compiler->upvalues[i];
+        Upvalue* upvalue = &compiler->upvalues[i];
         if (upvalue->index == index && upvalue->isLocal == isLocal) {
             return i;
         }
@@ -299,7 +308,7 @@ static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
     return compiler->function->upvalueCount++;
 }
 
-static int resolveUpvalue(Compiler *compiler, Token *name) {
+static int resolveUpvalue(Compiler* compiler, Token* name) {
     if (compiler->enclosing == NULL) return -1;
 
     int local = resolveLocal(compiler->enclosing, name);
@@ -323,7 +332,7 @@ static void addLocal(Token name) {
         return;
     }
 
-    Local *local = &current->locals[current->localCount++];
+    Local* local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1;
     local->isCaptured = false;
@@ -332,10 +341,10 @@ static void addLocal(Token name) {
 static void declareVariable() {
     if (current->scopeDepth == 0) return;
 
-    Token *name = &parser.previous;
+    Token* name = &parser.previous;
 
     for (int i = current->localCount - 1; i >= 0; i--) {
-        Local *local = &current->locals[i];
+        Local* local = &current->locals[i];
         if (local->depth != -1 && local->depth < current->scopeDepth) {
             break;
         }
@@ -348,7 +357,7 @@ static void declareVariable() {
     addLocal(*name);
 }
 
-static uint8_t parseVariable(const char *errorMessage) {
+static uint8_t parseVariable(const char* errorMessage) {
     consume(TOKEN_IDENTIFIER, errorMessage);
 
     declareVariable();
@@ -623,7 +632,7 @@ static void parsePrecedence(Precedence precedence) {
     }
 }
 
-static ParseRule *getRule(TokenType type) { return &rules[type]; }
+static ParseRule* getRule(TokenType type) { return &rules[type]; }
 
 static void advance() {
     parser.previous = parser.current;
@@ -639,7 +648,7 @@ static void advance() {
     }
 }
 
-static void consume(TokenType type, const char *message) {
+static void consume(TokenType type, const char* message) {
     if (parser.current.type == type) {
         advance();
 
@@ -677,7 +686,7 @@ static void binary(bool canAssign) {
     TokenType operatorType = parser.previous.type;
 
     // compile right operand
-    ParseRule *rule = getRule(operatorType);
+    ParseRule* rule = getRule(operatorType);
     parsePrecedence((Precedence)(rule->precedence + 1));
 
     // emit operator instruction
@@ -790,7 +799,7 @@ static void patchJump(int offset) {
     currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
-static void initCompiler(Compiler *compiler, FunctionType type) {
+static void initCompiler(Compiler* compiler, FunctionType type) {
     compiler->enclosing = current;
     compiler->function = NULL;
     compiler->type = type;
@@ -805,7 +814,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
             copyString(parser.previous.start, parser.previous.length);
     }
 
-    Local *local = &current->locals[current->localCount++];
+    Local* local = &current->locals[current->localCount++];
     local->depth = 0;
     local->isCaptured = false;
     local->name.start = "";
@@ -859,13 +868,13 @@ static void emitByte(uint8_t byte) {
 }
 
 // errors
-static void errorAtCurrent(const char *message) {
+static void errorAtCurrent(const char* message) {
     errorAt(&parser.current, message);
 }
 
-static void error(const char *message) { errorAt(&parser.previous, message); }
+static void error(const char* message) { errorAt(&parser.previous, message); }
 
-static void errorAt(Token *token, const char *message) {
+static void errorAt(Token* token, const char* message) {
     // are we already panicking?
     if (parser.panicMode) {
         return;
@@ -888,9 +897,9 @@ static void errorAt(Token *token, const char *message) {
     parser.hadError = true;
 }
 
-static ObjFunction *endCompiler() {
+static ObjFunction* endCompiler() {
     emitReturn();
-    ObjFunction *function = current->function;
+    ObjFunction* function = current->function;
 
 #ifdef DEBUG_PRINT_CODE
     if (!parser.hadError) {
