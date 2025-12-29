@@ -12,11 +12,11 @@
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE);
 #define IS_STRING(value) isObjType(value, OBJ_STRING)
 
-#define AS_CLOSURE(value) ((ObjClosure *)AS_OBJ(value))
-#define AS_FUNCTION(value) ((ObjFunction *)AS_OBJ(value))
-#define AS_NATIVE(value) (((ObjNative *)AS_OBJ(value))->function)
-#define AS_STRING(value) ((ObjString *)AS_OBJ(value))
-#define AS_CSTRING(value) (((ObjString *)AS_OBJ(value))->chars)
+#define AS_CLOSURE(value) ((ObjClosure*)AS_OBJ(value))
+#define AS_FUNCTION(value) ((ObjFunction*)AS_OBJ(value))
+#define AS_NATIVE(value) (((ObjNative*)AS_OBJ(value))->function)
+#define AS_STRING(value) ((ObjString*)AS_OBJ(value))
+#define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->chars)
 
 typedef enum {
     OBJ_CLOSURE,
@@ -28,7 +28,8 @@ typedef enum {
 
 struct Obj {
     ObjType type;
-    struct Obj *next;
+    bool isMarked;
+    struct Obj* next;
 };
 
 typedef struct {
@@ -36,10 +37,10 @@ typedef struct {
     int arity;
     int upvalueCount;
     Chunk chunk;
-    ObjString *name;
+    ObjString* name;
 } ObjFunction;
 
-typedef Value (*NativeFn)(int argCount, Value *args);
+typedef Value (*NativeFn)(int argCount, Value* args);
 
 typedef struct {
     Obj obj;
@@ -49,30 +50,30 @@ typedef struct {
 struct ObjString {
     Obj obj;
     int length;
-    char *chars;
+    char* chars;
     uint32_t hash;
 };
 
 typedef struct ObjUpvalue {
     Obj obj;
-    Value *location;
+    Value* location;
     Value closed;
-    struct ObjUpvalue *next;
+    struct ObjUpvalue* next;
 } ObjUpvalue;
 
 typedef struct {
     Obj obj;
-    ObjFunction *function;
-    ObjUpvalue **upvalues;
+    ObjFunction* function;
+    ObjUpvalue** upvalues;
     int upvalueCount;
 } ObjClosure;
 
-ObjClosure *newClosure(ObjFunction *function);
-ObjFunction *newFunction();
-ObjNative *newNative(NativeFn function);
-ObjString *takeString(char *chars, int length);
-ObjString *copyString(const char *chars, int length);
-ObjUpvalue *newUpvalue(Value *slot);
+ObjClosure* newClosure(ObjFunction* function);
+ObjFunction* newFunction();
+ObjNative* newNative(NativeFn function);
+ObjString* takeString(char* chars, int length);
+ObjString* copyString(const char* chars, int length);
+ObjUpvalue* newUpvalue(Value* slot);
 void printObject(Value value);
 
 static inline bool isObjType(Value value, ObjType type) {
